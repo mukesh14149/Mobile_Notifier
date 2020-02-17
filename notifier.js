@@ -1,4 +1,4 @@
-var script = document.createElement('script');
+let script = document.createElement('script');
 script.src = "https://www.gstatic.com/firebasejs/7.7.0/firebase-app.js";
 document.getElementsByTagName('head').item(0).appendChild(script);
 
@@ -11,50 +11,69 @@ script.src = "https://www.gstatic.com/firebasejs/7.7.0/firebase-database.js";
 document.getElementsByTagName('head').item(0).appendChild(script);
 
 script.onload = function () {
-	var firebaseConfig = {
-
+	let firebaseConfig = {
+		apiKey: "api_key",
+		authDomain: "auth_domain",
+		databaseURL: "db_url",
+		projectId: "product_id",
+		storageBucket: "storage_bucket",
+		messagingSenderId: "msg_senderId",
+		appId: "appId",
+		measurementId: "measurementId"
 	};
 	// Initialize Firebase
 	try {
 		const app = firebase.initializeApp(firebaseConfig);
 		firebase.analytics();
-		var appDb = firebase.database().ref();
-		const applicationState = {
-			values: []
-		};
-		appDb.on('child_added', snapshot => {
-			applicationState.values.push({
-				id: snapshot.key,
-				value: snapshot.val()
-			});
-			updateState(applicationState);
-		});
+		let getAllpkg = firebase.database().ref();
+		getAllpkg.on('child_added', snapshot => {
+			pkg_listener(snapshot.key);
+		})
 
 	} catch (e) {
 		console.log(e)
 	}
 
-	function updateState(applicationState) {
-		console.log({
-			state: JSON.stringify(applicationState)
+
+	function pkg_listener(id) {
+		let appDb = firebase.database().ref(id);
+		appDb.on('child_added', snapshot => {
+			create_listener(id, snapshot.key)
 		});
+	}
+
+	function create_listener(parentId, id) {
+		let appDb = firebase.database().ref(parentId + "/" + id);
+		appDb.on('value', snapshot => {
+			let dates = Object.keys(snapshot.val());
+			dates.sort((a, b) => (new Date(b) - new Date(a)))
+			updateState(id, snapshot.val()[dates[0]] + "\n" + snapshot.val()[dates[1]]);
+		});
+	}
+
+	function updateState(id, message) {
+		//	console.log(id + " " + message);
 		browser.notifications.create({
 			"type": "basic",
-			"title": "title",
-			"message": "content"
+			"title": id,
+			"message": message
+		});
+	}
+
+	function fetchAllAppMeta() {
+		let appName = firebase.database().ref();
+		appName.on('value', snapshot => {
+			//console.log(snapshot.val())
+			browser.runtime.sendMessage({
+				msg: snapshot.val()
+			});
 		});
 	}
 
 	browser.runtime.onMessage.addListener(
 		function (request, sender, sendResponse) {
-			browser.runtime.sendMessage({
-				msg: "sended from notifier",
-				data: {
-					subject: "Loading",
-					content: "sended from notifier completed!"
-				}
-			});
-
+			if (request.key === "GetAllAppNotification")
+				fetchAllAppMeta();
 		}
 	);
 
